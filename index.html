@@ -265,18 +265,28 @@ const map = L.map('map', {
   center: [20, 10],
   zoom: 3,
   zoomControl: false,
-  minZoom: 2,
+  minZoom: 1,
   maxZoom: 12,
   scrollWheelZoom: true,
   maxBounds: worldBounds,
   maxBoundsViscosity: 1.0,
-  zoomSnap: 1,
+  zoomSnap: 0.25,
   zoomDelta: 1,
 });
 
-// Snap back if somehow below minZoom
+let BASE_ZOOM = 2;
+
+function fitWorld() {
+  map.fitBounds(worldBounds, { animate: false });
+  BASE_ZOOM = map.getZoom();
+  map.setMinZoom(BASE_ZOOM);
+}
+
+map.whenReady(fitWorld);
+window.addEventListener('resize', fitWorld);
+
 map.on('zoomend', () => {
-  if (map.getZoom() < 2) map.setZoom(2, { animate: false });
+  if (map.getZoom() < BASE_ZOOM) map.setZoom(BASE_ZOOM, { animate: false });
 });
 
 // Block browser-level Ctrl+scroll zoom

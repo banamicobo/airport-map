@@ -118,10 +118,25 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
       font-size: 12px !important;
       line-height: 1.6 !important;
-      pointer-events: none !important;
-      max-width: 260px;
+      max-width: 280px;
     }
     .leaflet-tooltip::before { display: none !important; }
+    .tooltip-links {
+      margin-top: 8px;
+      padding-top: 7px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .tooltip-links a {
+      color: #7ab8f5;
+      text-decoration: none;
+      font-size: 11px;
+      opacity: 0.75;
+      transition: opacity 0.15s;
+    }
+    .tooltip-links a:hover { opacity: 1; text-decoration: underline; }
     .tooltip-name { font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 4px; }
     .tooltip-iata { font-size: 11px; color: #888899; margin-bottom: 6px; letter-spacing: 0.08em; }
     .tooltip-row { display: flex; justify-content: space-between; gap: 16px; }
@@ -130,6 +145,16 @@
     .tooltip-a380 { margin-top: 6px; font-size: 11px; color: #c8a96e; }
 
     .leaflet-container { background: #0a0a0f !important; }
+
+    @keyframes pulse-border {
+      0%, 100% { stroke-opacity: 0.35; stroke-width: 1.5px; }
+      50%       { stroke-opacity: 0.9;  stroke-width: 2.5px; }
+    }
+    .poland-border {
+      animation: pulse-border 2.8s ease-in-out infinite;
+      stroke: #ff3344;
+      fill: none;
+    }
   </style>
 </head>
 <body>
@@ -168,59 +193,105 @@
 
 <script>
 const airports = [
-  { iata:"ATL", name:"Hartsfield-Jackson Atlanta", city:"Atlanta, USA", lat:33.6407, lng:-84.4277, pax:104700000, year:1926, terminals:1, a380:false },
-  { iata:"DXB", name:"Dubai International", city:"Dubai, UAE", lat:25.2532, lng:55.3657, pax:86900000, year:1960, terminals:3, a380:true },
-  { iata:"DFW", name:"Dallas/Fort Worth International", city:"Dallas, USA", lat:32.8998, lng:-97.0403, pax:81800000, year:1974, terminals:5, a380:false },
-  { iata:"ORD", name:"Chicago O'Hare International", city:"Chicago, USA", lat:41.9742, lng:-87.9073, pax:77800000, year:1944, terminals:4, a380:false },
-  { iata:"IST", name:"Istanbul Airport", city:"Istanbul, Turkey", lat:41.2753, lng:28.7519, pax:76300000, year:2018, terminals:1, a380:false },
-  { iata:"LHR", name:"London Heathrow", city:"London, UK", lat:51.4700, lng:-0.4543, pax:79200000, year:1946, terminals:4, a380:true },
-  { iata:"HND", name:"Tokyo Haneda", city:"Tokyo, Japan", lat:35.5494, lng:139.7798, pax:75900000, year:1931, terminals:3, a380:true },
-  { iata:"DEN", name:"Denver International", city:"Denver, USA", lat:39.8561, lng:-104.6737, pax:77800000, year:1995, terminals:1, a380:false },
-  { iata:"LAX", name:"Los Angeles International", city:"Los Angeles, USA", lat:33.9425, lng:-118.4081, pax:75000000, year:1930, terminals:9, a380:true },
-  { iata:"DEL", name:"Indira Gandhi International", city:"New Delhi, India", lat:28.5562, lng:77.1000, pax:72200000, year:1962, terminals:3, a380:false },
-  { iata:"CAN", name:"Guangzhou Baiyun International", city:"Guangzhou, China", lat:23.3924, lng:113.2988, pax:70500000, year:2004, terminals:2, a380:false },
-  { iata:"PVG", name:"Shanghai Pudong International", city:"Shanghai, China", lat:31.1443, lng:121.8083, pax:70000000, year:1999, terminals:2, a380:true },
-  { iata:"CDG", name:"Paris Charles de Gaulle", city:"Paris, France", lat:49.0097, lng:2.5479, pax:67400000, year:1974, terminals:3, a380:true },
-  { iata:"ICN", name:"Seoul Incheon International", city:"Seoul, South Korea", lat:37.4602, lng:126.4407, pax:65700000, year:2001, terminals:2, a380:true },
-  { iata:"JFK", name:"New York JFK International", city:"New York, USA", lat:40.6413, lng:-73.7781, pax:64200000, year:1948, terminals:6, a380:true },
-  { iata:"FRA", name:"Frankfurt Airport", city:"Frankfurt, Germany", lat:50.0379, lng:8.5622, pax:59400000, year:1936, terminals:2, a380:true },
-  { iata:"AMS", name:"Amsterdam Airport Schiphol", city:"Amsterdam, Netherlands", lat:52.3105, lng:4.7683, pax:61900000, year:1916, terminals:1, a380:true },
-  { iata:"BKK", name:"Bangkok Suvarnabhumi", city:"Bangkok, Thailand", lat:13.6900, lng:100.7501, pax:60900000, year:2006, terminals:1, a380:true },
-  { iata:"MAD", name:"Adolfo Suárez Madrid-Barajas", city:"Madrid, Spain", lat:40.4936, lng:-3.5668, pax:60200000, year:1931, terminals:4, a380:true },
-  { iata:"MCO", name:"Orlando International", city:"Orlando, USA", lat:28.4312, lng:-81.3081, pax:57800000, year:1981, terminals:4, a380:false },
-  { iata:"SIN", name:"Singapore Changi Airport", city:"Singapore", lat:1.3644, lng:103.9915, pax:58900000, year:1981, terminals:4, a380:true },
-  { iata:"DOH", name:"Hamad International Airport", city:"Doha, Qatar", lat:25.2731, lng:51.6080, pax:52400000, year:2014, terminals:1, a380:true },
-  { iata:"MIA", name:"Miami International Airport", city:"Miami, USA", lat:25.7959, lng:-80.2870, pax:52300000, year:1928, terminals:3, a380:false },
-  { iata:"LAS", name:"Harry Reid International", city:"Las Vegas, USA", lat:36.0840, lng:-115.1537, pax:52000000, year:1942, terminals:4, a380:false },
-  { iata:"SZX", name:"Shenzhen Bao'an International", city:"Shenzhen, China", lat:22.6397, lng:113.8107, pax:51800000, year:1991, terminals:3, a380:false },
-  { iata:"YYZ", name:"Toronto Pearson International", city:"Toronto, Canada", lat:43.6777, lng:-79.6248, pax:50500000, year:1939, terminals:2, a380:false },
-  { iata:"SFO", name:"San Francisco International", city:"San Francisco, USA", lat:37.6213, lng:-122.3790, pax:50400000, year:1927, terminals:4, a380:true },
-  { iata:"KUL", name:"Kuala Lumpur International", city:"Kuala Lumpur, Malaysia", lat:2.7456, lng:101.7099, pax:48200000, year:1998, terminals:2, a380:true },
-  { iata:"MUC", name:"Munich Airport", city:"Munich, Germany", lat:48.3537, lng:11.7750, pax:48000000, year:1992, terminals:2, a380:true },
-  { iata:"CGK", name:"Soekarno–Hatta International", city:"Jakarta, Indonesia", lat:-6.1256, lng:106.6559, pax:47900000, year:1985, terminals:3, a380:false },
-  { iata:"FCO", name:"Leonardo da Vinci – Fiumicino", city:"Rome, Italy", lat:41.8045, lng:12.2508, pax:46000000, year:1961, terminals:4, a380:false },
-  { iata:"EWR", name:"Newark Liberty International", city:"New York, USA", lat:40.6895, lng:-74.1745, pax:46300000, year:1928, terminals:3, a380:false },
-  { iata:"SYD", name:"Sydney Kingsford Smith", city:"Sydney, Australia", lat:-33.9399, lng:151.1753, pax:44400000, year:1920, terminals:3, a380:true },
-  { iata:"BCN", name:"Barcelona El Prat Airport", city:"Barcelona, Spain", lat:41.2974, lng:2.0833, pax:40000000, year:1963, terminals:2, a380:false },
-  { iata:"HKG", name:"Hong Kong International", city:"Hong Kong", lat:22.3080, lng:113.9185, pax:40700000, year:1998, terminals:2, a380:true },
-  { iata:"PEK", name:"Beijing Capital International", city:"Beijing, China", lat:40.0801, lng:116.5846, pax:40500000, year:1958, terminals:3, a380:true },
-  { iata:"PKX", name:"Beijing Daxing International", city:"Beijing, China", lat:39.5098, lng:116.4105, pax:35000000, year:2019, terminals:1, a380:false },
-  { iata:"MEX", name:"Mexico City International", city:"Mexico City, Mexico", lat:19.4363, lng:-99.0721, pax:35000000, year:1952, terminals:2, a380:false },
-  { iata:"AUH", name:"Abu Dhabi International", city:"Abu Dhabi, UAE", lat:24.4330, lng:54.6511, pax:24000000, year:1982, terminals:3, a380:true },
-  { iata:"NRT", name:"Tokyo Narita International", city:"Tokyo, Japan", lat:35.7720, lng:140.3929, pax:27000000, year:1978, terminals:3, a380:true },
+  { iata:"ATL", name:"Hartsfield-Jackson Atlanta", city:"Atlanta, USA", lat:33.6407, lng:-84.4277, pax:104700000, year:1926, terminals:1, a380:false, wiki:"Hartsfield%E2%80%93Jackson_Atlanta_International_Airport" },
+  { iata:"DXB", name:"Dubai International", city:"Dubai, UAE", lat:25.2532, lng:55.3657, pax:86900000, year:1960, terminals:3, a380:true, wiki:"Dubai_International_Airport" },
+  { iata:"DFW", name:"Dallas/Fort Worth International", city:"Dallas, USA", lat:32.8998, lng:-97.0403, pax:81800000, year:1974, terminals:5, a380:true, wiki:"Dallas%E2%80%93Fort_Worth_International_Airport" },
+  { iata:"ORD", name:"Chicago O'Hare International", city:"Chicago, USA", lat:41.9742, lng:-87.9073, pax:77800000, year:1944, terminals:4, a380:false, wiki:"O%27Hare_International_Airport" },
+  { iata:"IST", name:"Istanbul Airport", city:"Istanbul, Turkey", lat:41.2753, lng:28.7519, pax:76300000, year:2018, terminals:1, a380:true, wiki:"Istanbul_Airport" },
+  { iata:"LHR", name:"London Heathrow", city:"London, UK", lat:51.4700, lng:-0.4543, pax:79200000, year:1946, terminals:4, a380:true, wiki:"Heathrow_Airport" },
+  { iata:"HND", name:"Tokyo Haneda", city:"Tokyo, Japan", lat:35.5494, lng:139.7798, pax:75900000, year:1931, terminals:3, a380:true, wiki:"Tokyo_International_Airport" },
+  { iata:"DEN", name:"Denver International", city:"Denver, USA", lat:39.8561, lng:-104.6737, pax:77800000, year:1995, terminals:1, a380:true, wiki:"Denver_International_Airport" },
+  { iata:"LAX", name:"Los Angeles International", city:"Los Angeles, USA", lat:33.9425, lng:-118.4081, pax:75000000, year:1930, terminals:9, a380:true, wiki:"Los_Angeles_International_Airport" },
+  { iata:"DEL", name:"Indira Gandhi International", city:"New Delhi, India", lat:28.5562, lng:77.1000, pax:72200000, year:1962, terminals:3, a380:true, wiki:"Indira_Gandhi_International_Airport" },
+  { iata:"CAN", name:"Guangzhou Baiyun International", city:"Guangzhou, China", lat:23.3924, lng:113.2988, pax:70500000, year:2004, terminals:2, a380:true, wiki:"Guangzhou_Baiyun_International_Airport" },
+  { iata:"PVG", name:"Shanghai Pudong International", city:"Shanghai, China", lat:31.1443, lng:121.8083, pax:70000000, year:1999, terminals:2, a380:true, wiki:"Shanghai_Pudong_International_Airport" },
+  { iata:"CDG", name:"Paris Charles de Gaulle", city:"Paris, France", lat:49.0097, lng:2.5479, pax:67400000, year:1974, terminals:3, a380:true, wiki:"Charles_de_Gaulle_Airport" },
+  { iata:"ICN", name:"Seoul Incheon International", city:"Seoul, South Korea", lat:37.4602, lng:126.4407, pax:65700000, year:2001, terminals:2, a380:true, wiki:"Incheon_International_Airport" },
+  { iata:"JFK", name:"New York JFK International", city:"New York, USA", lat:40.6413, lng:-73.7781, pax:64200000, year:1948, terminals:6, a380:true, wiki:"John_F._Kennedy_International_Airport" },
+  { iata:"FRA", name:"Frankfurt Airport", city:"Frankfurt, Germany", lat:50.0379, lng:8.5622, pax:59400000, year:1936, terminals:2, a380:true, wiki:"Frankfurt_Airport" },
+  { iata:"AMS", name:"Amsterdam Airport Schiphol", city:"Amsterdam, Netherlands", lat:52.3105, lng:4.7683, pax:61900000, year:1916, terminals:1, a380:true, wiki:"Amsterdam_Airport_Schiphol" },
+  { iata:"BKK", name:"Bangkok Suvarnabhumi", city:"Bangkok, Thailand", lat:13.6900, lng:100.7501, pax:60900000, year:2006, terminals:1, a380:true, wiki:"Suvarnabhumi_Airport" },
+  { iata:"MAD", name:"Adolfo Suárez Madrid-Barajas", city:"Madrid, Spain", lat:40.4936, lng:-3.5668, pax:60200000, year:1931, terminals:4, a380:true, wiki:"Adolfo_Su%C3%A1rez_Madrid%E2%80%93Barajas_Airport" },
+  { iata:"MCO", name:"Orlando International", city:"Orlando, USA", lat:28.4312, lng:-81.3081, pax:57800000, year:1981, terminals:4, a380:false, wiki:"Orlando_International_Airport" },
+  { iata:"SIN", name:"Singapore Changi Airport", city:"Singapore", lat:1.3644, lng:103.9915, pax:58900000, year:1981, terminals:4, a380:true, wiki:"Singapore_Changi_Airport" },
+  { iata:"DOH", name:"Hamad International Airport", city:"Doha, Qatar", lat:25.2731, lng:51.6080, pax:52400000, year:2014, terminals:1, a380:true, wiki:"Hamad_International_Airport" },
+  { iata:"MIA", name:"Miami International Airport", city:"Miami, USA", lat:25.7959, lng:-80.2870, pax:52300000, year:1928, terminals:3, a380:true, wiki:"Miami_International_Airport" },
+  { iata:"LAS", name:"Harry Reid International", city:"Las Vegas, USA", lat:36.0840, lng:-115.1537, pax:52000000, year:1942, terminals:4, a380:false, wiki:"Harry_Reid_International_Airport" },
+  { iata:"SZX", name:"Shenzhen Bao'an International", city:"Shenzhen, China", lat:22.6397, lng:113.8107, pax:51800000, year:1991, terminals:3, a380:false, wiki:"Shenzhen_Bao%27an_International_Airport" },
+  { iata:"YYZ", name:"Toronto Pearson International", city:"Toronto, Canada", lat:43.6777, lng:-79.6248, pax:50500000, year:1939, terminals:2, a380:false, wiki:"Toronto_Pearson_International_Airport" },
+  { iata:"SFO", name:"San Francisco International", city:"San Francisco, USA", lat:37.6213, lng:-122.3790, pax:50400000, year:1927, terminals:4, a380:true, wiki:"San_Francisco_International_Airport" },
+  { iata:"KUL", name:"Kuala Lumpur International", city:"Kuala Lumpur, Malaysia", lat:2.7456, lng:101.7099, pax:48200000, year:1998, terminals:2, a380:true, wiki:"Kuala_Lumpur_International_Airport" },
+  { iata:"MUC", name:"Munich Airport", city:"Munich, Germany", lat:48.3537, lng:11.7750, pax:48000000, year:1992, terminals:2, a380:true, wiki:"Munich_Airport" },
+  { iata:"CGK", name:"Soekarno–Hatta International", city:"Jakarta, Indonesia", lat:-6.1256, lng:106.6559, pax:47900000, year:1985, terminals:3, a380:false, wiki:"Soekarno%E2%80%93Hatta_International_Airport" },
+  { iata:"FCO", name:"Leonardo da Vinci – Fiumicino", city:"Rome, Italy", lat:41.8045, lng:12.2508, pax:46000000, year:1961, terminals:4, a380:false, wiki:"Leonardo_da_Vinci%E2%80%93Fiumicino_Airport" },
+  { iata:"EWR", name:"Newark Liberty International", city:"New York, USA", lat:40.6895, lng:-74.1745, pax:46300000, year:1928, terminals:3, a380:false, wiki:"Newark_Liberty_International_Airport" },
+  { iata:"SYD", name:"Sydney Kingsford Smith", city:"Sydney, Australia", lat:-33.9399, lng:151.1753, pax:44400000, year:1920, terminals:3, a380:true, wiki:"Sydney_Airport" },
+  { iata:"BCN", name:"Barcelona El Prat Airport", city:"Barcelona, Spain", lat:41.2974, lng:2.0833, pax:40000000, year:1963, terminals:2, a380:false, wiki:"Barcelona%E2%80%93El_Prat_Airport" },
+  { iata:"HKG", name:"Hong Kong International", city:"Hong Kong", lat:22.3080, lng:113.9185, pax:40700000, year:1998, terminals:2, a380:true, wiki:"Hong_Kong_International_Airport" },
+  { iata:"PEK", name:"Beijing Capital International", city:"Beijing, China", lat:40.0801, lng:116.5846, pax:40500000, year:1958, terminals:3, a380:true, wiki:"Beijing_Capital_International_Airport" },
+  { iata:"PKX", name:"Beijing Daxing International", city:"Beijing, China", lat:39.5098, lng:116.4105, pax:35000000, year:2019, terminals:1, a380:false, wiki:"Beijing_Daxing_International_Airport" },
+  { iata:"MEX", name:"Mexico City International", city:"Mexico City, Mexico", lat:19.4363, lng:-99.0721, pax:35000000, year:1952, terminals:2, a380:false, wiki:"Mexico_City_International_Airport" },
+  { iata:"AUH", name:"Abu Dhabi International", city:"Abu Dhabi, UAE", lat:24.4330, lng:54.6511, pax:24000000, year:1982, terminals:3, a380:true, wiki:"Abu_Dhabi_International_Airport" },
+  { iata:"NRT", name:"Tokyo Narita International", city:"Tokyo, Japan", lat:35.7720, lng:140.3929, pax:27000000, year:1978, terminals:3, a380:true, wiki:"Narita_International_Airport" },
+  { iata:"MEL", name:"Melbourne Airport (Tullamarine)", city:"Melbourne, Australia", lat:-37.6690, lng:144.8410, pax:33000000, year:1970, terminals:4, a380:true, wiki:"Melbourne_Airport" },
+  { iata:"BOM", name:"Chhatrapati Shivaji Maharaj International", city:"Mumbai, India", lat:19.0896, lng:72.8656, pax:50000000, year:1942, terminals:2, a380:true, wiki:"Chhatrapati_Shivaji_Maharaj_International_Airport" },
+  { iata:"GRU", name:"São Paulo–Guarulhos International", city:"São Paulo, Brazil", lat:-23.4356, lng:-46.4731, pax:36000000, year:1985, terminals:3, a380:true, wiki:"S%C3%A3o_Paulo%E2%80%93Guarulhos_International_Airport" },
+  { iata:"JNB", name:"O.R. Tambo International", city:"Johannesburg, South Africa", lat:-26.1367, lng:28.2425, pax:21000000, year:1952, terminals:2, a380:true, wiki:"O._R._Tambo_International_Airport" },
+  { iata:"IAD", name:"Washington Dulles International", city:"Washington D.C., USA", lat:38.9531, lng:-77.4565, pax:24000000, year:1962, terminals:4, a380:true, wiki:"Dulles_International_Airport" },
+  { iata:"IAH", name:"George Bush Intercontinental", city:"Houston, USA", lat:29.9902, lng:-95.3368, pax:44000000, year:1969, terminals:5, a380:true, wiki:"George_Bush_Intercontinental_Airport" },
+  { iata:"BOS", name:"Boston Logan International", city:"Boston, USA", lat:42.3656, lng:-71.0096, pax:41000000, year:1923, terminals:4, a380:true, wiki:"Logan_International_Airport" },
+  { iata:"ZRH", name:"Zurich Airport", city:"Zurich, Switzerland", lat:47.4647, lng:8.5492, pax:26000000, year:1948, terminals:1, a380:true, wiki:"Zurich_Airport" },
+  { iata:"DUS", name:"Düsseldorf Airport", city:"Düsseldorf, Germany", lat:51.2895, lng:6.7668, pax:21000000, year:1927, terminals:1, a380:true, wiki:"D%C3%BCsseldorf_Airport" },
+  { iata:"MAN", name:"Manchester Airport", city:"Manchester, UK", lat:53.3537, lng:-2.2750, pax:28000000, year:1938, terminals:3, a380:true, wiki:"Manchester_Airport" },
+  { iata:"MXP", name:"Milan Malpensa Airport", city:"Milan, Italy", lat:45.6301, lng:8.7231, pax:25000000, year:1948, terminals:2, a380:true, wiki:"Malpensa_Airport" },
+  { iata:"ATH", name:"Athens Eleftherios Venizelos", city:"Athens, Greece", lat:37.9364, lng:23.9445, pax:27000000, year:2001, terminals:1, a380:true, wiki:"Athens_International_Airport" },
+  { iata:"CPH", name:"Copenhagen Airport", city:"Copenhagen, Denmark", lat:55.6181, lng:12.6560, pax:28000000, year:1925, terminals:3, a380:true, wiki:"Copenhagen_Airport" },
+  { iata:"EZE", name:"Ministro Pistarini International", city:"Buenos Aires, Argentina", lat:-34.8222, lng:-58.5358, pax:15000000, year:1949, terminals:1, a380:true, wiki:"Ministro_Pistarini_International_Airport" },
+  { iata:"HNL", name:"Daniel K. Inouye International", city:"Honolulu, USA", lat:21.3245, lng:-157.9251, pax:21000000, year:1927, terminals:3, a380:true, wiki:"Daniel_K._Inouye_International_Airport" },
+  { iata:"CAI", name:"Cairo International Airport", city:"Cairo, Egypt", lat:30.1219, lng:31.4056, pax:16000000, year:1945, terminals:3, a380:true, wiki:"Cairo_International_Airport" },
+  { iata:"AKL", name:"Auckland Airport", city:"Auckland, New Zealand", lat:-37.0082, lng:174.7917, pax:14000000, year:1966, terminals:2, a380:true, wiki:"Auckland_Airport" },
+  { iata:"PER", name:"Perth Airport", city:"Perth, Australia", lat:-31.9403, lng:115.9672, pax:13000000, year:1944, terminals:4, a380:true, wiki:"Perth_Airport" },
+  { iata:"BNE", name:"Brisbane Airport", city:"Brisbane, Australia", lat:-27.3842, lng:153.1175, pax:23000000, year:1988, terminals:2, a380:true, wiki:"Brisbane_Airport" },
+  { iata:"TPE", name:"Taiwan Taoyuan International", city:"Taipei, Taiwan", lat:25.0777, lng:121.2328, pax:45000000, year:1979, terminals:2, a380:true, wiki:"Taiwan_Taoyuan_International_Airport" },
+  { iata:"JED", name:"King Abdulaziz International", city:"Jeddah, Saudi Arabia", lat:21.6796, lng:39.1565, pax:41000000, year:1981, terminals:1, a380:true, wiki:"King_Abdulaziz_International_Airport" },
+  { iata:"AMM", name:"Queen Alia International", city:"Amman, Jordan", lat:31.7226, lng:35.9932, pax:9000000, year:1983, terminals:1, a380:true, wiki:"Queen_Alia_International_Airport" },
+  { iata:"WAW", name:"Warsaw Chopin Airport", city:"Warsaw, Poland", lat:52.1657, lng:20.9671, pax:18800000, year:1934, terminals:1, a380:false, wiki:"Warsaw_Chopin_Airport" },
 ];
 
 // Map init
+const worldBounds = L.latLngBounds([[-85, -180], [85, 180]]);
+
 const map = L.map('map', {
   center: [20, 10],
   zoom: 3,
   zoomControl: false,
-  minZoom: 2,
+  minZoom: 1,
   maxZoom: 12,
   scrollWheelZoom: true,
+  maxBounds: worldBounds,
+  maxBoundsViscosity: 1.0,
 });
 
+function updateMinZoom() {
+  const min = map.getBoundsZoom(worldBounds);
+  map.setMinZoom(min);
+  if (map.getZoom() < min) map.setZoom(min);
+}
+
+map.whenReady(updateMinZoom);
+window.addEventListener('resize', updateMinZoom);
+
 L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+// Poland border
+fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries/POL.geo.json')
+  .then(r => r.json())
+  .then(data => {
+    L.geoJSON(data, {
+      style: { className: 'poland-border', color: '#ff3344', weight: 2, fill: false },
+      interactive: false,
+    }).addTo(map);
+  });
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   attribution: '© OpenStreetMap contributors © CARTO',
@@ -240,6 +311,11 @@ function fmt(n) {
 }
 
 function tooltipHtml(a) {
+  const wikiUrl = `https://en.wikipedia.org/wiki/${a.wiki}`;
+  const fr24Url = `https://www.flightradar24.com/airport/${a.iata.toLowerCase()}`;
+  const a380Link = a.a380
+    ? `<a href="https://en.wikipedia.org/wiki/Airbus_A380_operators" target="_blank" rel="noopener">A380 Operators</a>`
+    : '';
   return `
     <div class="tooltip-name">${a.name}</div>
     <div class="tooltip-iata">${a.iata} · ${a.city}</div>
@@ -247,6 +323,11 @@ function tooltipHtml(a) {
     <div class="tooltip-row"><span class="tooltip-key">Terminals</span><span class="tooltip-val">${a.terminals}</span></div>
     <div class="tooltip-row"><span class="tooltip-key">Opened</span><span class="tooltip-val">${a.year}</span></div>
     ${a.a380 ? '<div class="tooltip-a380">✦ Airbus A380 capable</div>' : ''}
+    <div class="tooltip-links">
+      <a href="${wikiUrl}" target="_blank" rel="noopener">Wikipedia</a>
+      <a href="${fr24Url}" target="_blank" rel="noopener">Flightradar24</a>
+      ${a380Link}
+    </div>
   `;
 }
 
@@ -349,7 +430,7 @@ function refreshMarkers() {
 airports.forEach(a => {
   const m = L.circleMarker([a.lat, a.lng], makeStyle(a, false))
     .addTo(map)
-    .bindTooltip(tooltipHtml(a), { sticky: true, className: '', direction: 'auto', offset: [10, 0] });
+    .bindTooltip(tooltipHtml(a), { sticky: false, interactive: true, className: '', direction: 'auto', offset: [12, 0] });
 
   m.on('click', e => {
     L.DomEvent.stopPropagation(e);

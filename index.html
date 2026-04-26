@@ -265,7 +265,7 @@ const map = L.map('map', {
   center: [20, 10],
   zoom: 3,
   zoomControl: false,
-  minZoom: 1,
+  minZoom: 2,
   maxZoom: 12,
   scrollWheelZoom: true,
   maxBounds: worldBounds,
@@ -273,7 +273,7 @@ const map = L.map('map', {
 });
 
 function updateMinZoom() {
-  const min = map.getBoundsZoom(worldBounds);
+  const min = Math.ceil(map.getBoundsZoom(worldBounds));
   map.setMinZoom(min);
   if (map.getZoom() < min) map.setZoom(min);
 }
@@ -281,9 +281,13 @@ function updateMinZoom() {
 map.whenReady(updateMinZoom);
 window.addEventListener('resize', updateMinZoom);
 
-document.addEventListener('wheel', (e) => {
+window.addEventListener('wheel', (e) => {
   if (e.ctrlKey) e.preventDefault();
-}, { passive: false });
+}, { passive: false, capture: true });
+
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) e.preventDefault();
+}, { capture: true });
 
 L.control.zoom({ position: 'bottomleft' }).addTo(map);
 

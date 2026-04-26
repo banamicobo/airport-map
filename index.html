@@ -268,33 +268,6 @@ const map = L.map('map', {
   minZoom: 1,
   maxZoom: 12,
   scrollWheelZoom: true,
-  maxBounds: worldBounds,
-  maxBoundsViscosity: 1.0,
-  zoomSnap: 0.25,
-  zoomDelta: 1,
-});
-
-let BASE_ZOOM = 2;
-
-function fitWorld() {
-  map.fitBounds(worldBounds, { animate: false });
-  BASE_ZOOM = map.getZoom();
-  map.setMinZoom(BASE_ZOOM);
-}
-
-map.whenReady(fitWorld);
-window.addEventListener('resize', fitWorld);
-
-map.on('zoomend', () => {
-  if (map.getZoom() < BASE_ZOOM) map.setZoom(BASE_ZOOM, { animate: false });
-});
-
-// Block browser-level Ctrl+scroll zoom
-const mapEl = document.getElementById('map');
-mapEl.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
-window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
-window.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && (e.key === '-' || e.key === '+' || e.key === '0')) e.preventDefault();
 });
 
 L.control.zoom({ position: 'bottomleft' }).addTo(map);
@@ -313,7 +286,6 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   attribution: '© OpenStreetMap contributors © CARTO',
   subdomains: 'abcd',
   maxZoom: 20,
-  noWrap: true,
 }).addTo(map);
 
 // State

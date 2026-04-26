@@ -261,6 +261,8 @@ const airports = [
 // Map init
 const worldBounds = L.latLngBounds([[-85, -180], [85, 180]]);
 
+const latBounds = L.latLngBounds([[-85, -Infinity], [85, Infinity]]);
+
 const map = L.map('map', {
   center: [20, 10],
   zoom: 3,
@@ -268,7 +270,18 @@ const map = L.map('map', {
   minZoom: 1,
   maxZoom: 12,
   scrollWheelZoom: true,
+  maxBounds: latBounds,
+  maxBoundsViscosity: 1.0,
 });
+
+function updateMinZoom() {
+  const minZ = map.getBoundsZoom(worldBounds, false);
+  map.setMinZoom(minZ);
+  if (map.getZoom() < minZ) map.setZoom(minZ, { animate: false });
+}
+
+map.whenReady(updateMinZoom);
+window.addEventListener('resize', updateMinZoom);
 
 L.control.zoom({ position: 'bottomleft' }).addTo(map);
 

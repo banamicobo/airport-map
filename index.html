@@ -272,10 +272,15 @@ const map = L.map('map', {
   scrollWheelZoom: true,
   maxBounds: latBounds,
   maxBoundsViscosity: 1.0,
+  zoomSnap: 0.1,
 });
 
 function updateMinZoom() {
-  const minZ = map.getBoundsZoom(worldBounds, false);
+  const mapHeight = map.getSize().y;
+  const topPx = map.project([85, 0], 0).y;
+  const botPx = map.project([-85, 0], 0).y;
+  const worldHeightAtZ0 = botPx - topPx;
+  const minZ = Math.log2(mapHeight / worldHeightAtZ0);
   map.setMinZoom(minZ);
   if (map.getZoom() < minZ) map.setZoom(minZ, { animate: false });
 }

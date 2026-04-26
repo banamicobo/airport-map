@@ -281,6 +281,10 @@ function updateMinZoom() {
 map.whenReady(updateMinZoom);
 window.addEventListener('resize', updateMinZoom);
 
+document.addEventListener('wheel', (e) => {
+  if (e.ctrlKey) e.preventDefault();
+}, { passive: false });
+
 L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
 // Poland border

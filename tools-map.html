@@ -43,7 +43,7 @@
 <div id="header">
   <div>
     <h1>Airport Map — Stack</h1>
-    <p>airportmapa380.netlify.app</p>
+    <p>airport-map-lime.vercel.app</p>
   </div>
   <div id="legend">
     <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>AI</div>
@@ -71,18 +71,18 @@ const nodes = [
   { id:'claude-code', label:'Claude Code', category:'ai', plan:'paid', radius:36, desc:'Agent AI który buduje całą aplikację. Dodaje lotniska, implementuje zoom, debug.', func:'Kodowanie, debug, deploy' },
   { id:'leaflet', label:'Leaflet.js', category:'library', plan:'free', radius:28, desc:'Biblioteka map interaktywnych. Markery, tooltips, kalkulator great-circle, pulsująca granica Polski.', func:'Interaktywna mapa świata' },
   { id:'cartodb', label:'CartoDB\nTiles', category:'library', plan:'free', radius:22, desc:'Dostawca ciemnych kafelków mapy (dark tile layer). Bezpłatny CDN dla projektów open-source.', func:'Dark map tiles' },
-  { id:'netlify', label:'Netlify', category:'deploy', plan:'limit', radius:26, desc:'Hosting aplikacji. Free tier wyczerpany — projekt aktywny ale bez nowych deployów przez Netlify.', func:'Hosting (airportmapa380.netlify.app)' },
+  { id:'vercel', label:'Vercel', category:'deploy', plan:'free', radius:26, desc:'Hosting aplikacji od 10.09.2026. Przeniesione z Netlify, gdzie wyczerpal sie darmowy limit deployow.', func:'Hosting (airport-map-lime.vercel.app)' },
   { id:'github', label:'GitHub', category:'vcs', plan:'free', radius:26, desc:'Repozytorium: github.com/banamicobo/airport-map.', func:'Zdalne repo, backup' },
   { id:'git', label:'Git', category:'vcs', plan:'free', radius:22, desc:'Lokalna kontrola wersji. Każda zmiana = commit.', func:'Commity, historia' },
   { id:'chrome', label:'Chrome', category:'system', plan:'free', radius:18, desc:'Przeglądarka testowa. Claude otwiera po każdej zmianie.', func:'Testowanie' },
-  { id:'app', label:'Airport\nMap', category:'project', plan:'na', radius:36, desc:'Mapa świata 62 lotnisk A380. Złote markery = A380-capable. Kalkulator odległości great-circle, pulsująca granica Polski.', func:'airportmapa380.netlify.app' },
+  { id:'app', label:'Airport\nMap', category:'project', plan:'na', radius:36, desc:'Mapa świata 62 lotnisk A380. Złote markery = A380-capable. Kalkulator odległości great-circle, pulsująca granica Polski.', func:'airport-map-lime.vercel.app' },
 ];
 
 const links = [
   { source:'claude-code', target:'git', label:'Claude tworzy commity po każdej zmianie (dodanie lotniska, fix zoom)' },
   { source:'git', target:'github', label:'`git push` wysyła commity do repo' },
-  { source:'github', target:'netlify', label:'Push wyzwalał auto-deploy (przed wyczerpaniem limitu)' },
-  { source:'netlify', target:'app', label:'Netlify hostuje aplikację na airportmapa380.netlify.app' },
+  { source:'github', target:'vercel', label:'Deploy komenda vercel --prod' },
+  { source:'vercel', target:'app', label:'Vercel hostuje aplikacje na airport-map-lime.vercel.app' },
   { source:'github', target:'app', label:'Kod źródłowy w repo github.com/banamicobo/airport-map' },
   { source:'leaflet', target:'app', label:'Leaflet.js renderuje mapę, markery, tooltips i kalkulator odległości' },
   { source:'cartodb', target:'app', label:'CartoDB dostarcza ciemne kafelki mapy przez CDN' },

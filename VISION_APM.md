@@ -1,6 +1,6 @@
 # APM — Airport Map A380
 **Kod projektu:** APM
-**URL:** https://airportmapa380.netlify.app
+**URL:** https://airport-map-lime.vercel.app
 **Repo:** https://github.com/banamicobo/airport-map
 
 ---
@@ -15,10 +15,11 @@ Interaktywna mapa świata 62 lotnisk obsługujących Airbusa A380. Single-file a
 - Zoom out zablokowany na "cały świat widoczny"
 
 ## Deploy
-| URL | Projekt Netlify |
-|-----|-----------------|
-| https://airportmapa380.netlify.app | airportmapa380 |
-| https://airport-map-mikolaj.netlify.app | airport-map-mikolaj |
+| URL | Gdzie | Stan |
+|-----|-------|------|
+| https://airport-map-lime.vercel.app | Vercel, projekt `airport-map` | produkcja od 10.09.2026 |
+| https://airportmapa380.netlify.app | Netlify | stary adres, nadal odpowiada, bez nowych deployów |
+| https://airport-map-mikolaj.netlify.app | Netlify | bez znaczenia (Miko, 10.09.2026) |
 
 ## /btw — Pomysły
 - Filtrowanie po przewoźniku / aliansie

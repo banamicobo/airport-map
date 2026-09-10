@@ -32,13 +32,15 @@ Interaktywna mapa świata z lotniskami obsługującymi Airbusa A380, z kalkulato
 3. **Repo:** `https://github.com/banamicobo/airport-map`, branch `master`, publiczne. Katalog jest wyłączony w `.gitignore` rodzica.
 4. **Mapa narzędzi projektu:** `tools-map.html`.
 
-### Hosting — w trakcie przenosin
+### Hosting
 
-Produkcja stoi dziś na **Netlify**: `https://airportmapa380.netlify.app` (odpowiada, sprawdzone 10.09.2026), drugi adres `https://airport-map-mikolaj.netlify.app`.
+**Produkcja: Vercel — `https://airport-map-lime.vercel.app`** (drugi adres tego samego wdrożenia: `https://airport-map-banamicobos-projects.vercel.app`). Przeniesione 10.09.2026 decyzją Miko, żeby cały IOMJB miał jeden panel i jeden MCP. Projekt na Vercelu: `airport-map`, konto `banamicobo`.
 
-**Decyzja Miko 10.09.2026: przenosimy na Vercel** — żeby cały IOMJB miał jeden panel i jeden MCP. Przenosiny są zadaniem tej sesji, nie stanem faktycznym: dopóki ich nie wykonasz, adres produkcyjny pozostaje ten na Netlify. Po migracji zaktualizuj `VISION_APM.md` i `tools-map.html`, bo oba podają dziś adresy Netlify.
+Deploy: `vercel --prod --yes` z katalogu projektu albo przez Vercel MCP.
 
-Deploy po migracji: `vercel --prod --yes` albo przez Vercel MCP. Cykl przy zmianie widocznej dla człowieka: commit → push → deploy → otwarcie w przeglądarce **Miko** (Opera Air; `kanaly_lib.otworz_dla_miko`). Domyślna przeglądarka systemu to okno agenta, nie Miko.
+**Stary adres na Netlify** `https://airportmapa380.netlify.app` nadal odpowiada i nikt go nie kasował — decyzja o wygaszeniu należy do Miko. Na Netlify wyczerpany był darmowy limit, więc nowe deploye tam i tak nie wychodziły. Drugi adres `airport-map-mikolaj.netlify.app` Miko uznał 10.09.2026 za bez znaczenia.
+
+Cykl przy zmianie widocznej dla człowieka: commit → push → deploy → otwarcie w przeglądarce **Miko** (Opera Air; `kanaly_lib.otworz_dla_miko`). Domyślna przeglądarka systemu to okno agenta, nie Miko.
 
 ## Czego ten projekt nie ma
 

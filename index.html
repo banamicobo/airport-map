@@ -300,10 +300,11 @@ fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries/P
     }).addTo(map);
   });
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© OpenStreetMap contributors © CARTO',
-  subdomains: 'abcd',
-  maxZoom: 20,
+// Esri World Dark Gray Canvas — bez klucza API (CARTO od 09.2026 znakuje kafelki "API KEY REQUIRED")
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles © Esri — Esri, DeLorme, NAVTEQ',
+  maxZoom: 16,
+  maxNativeZoom: 16,
 }).addTo(map);
 
 // State

@@ -389,9 +389,22 @@ function greatCirclePoints(lat1, lon1, lat2, lon2, n=120) {
     const x = A*Math.cos(φ1)*Math.cos(λ1) + B*Math.cos(φ2)*Math.cos(λ2);
     const y = A*Math.cos(φ1)*Math.sin(λ1) + B*Math.cos(φ2)*Math.sin(λ2);
     const z = A*Math.sin(φ1) + B*Math.sin(φ2);
-    pts.push([toDeg(Math.atan2(z, Math.sqrt(x*x+y*y))), toDeg(Math.atan2(y, x))]);
+    let lng = toDeg(Math.atan2(y, x));
+    // Odwijanie długości: atan2 zwraca -180..180, więc łuk przez antymerydian
+    // skakałby o ~360°. Trzymamy ciągłość względem poprzedniego punktu.
+    if (pts.length) {
+      const prev = pts[pts.length - 1][1];
+      while (lng - prev > 180) lng -= 360;
+      while (lng - prev < -180) lng += 360;
+    }
+    pts.push([toDeg(Math.atan2(z, Math.sqrt(x*x+y*y))), lng]);
   }
   return pts;
+}
+
+// Ta sama trasa przesunięta o pełny obrót świata (kopie mapy po lewej/prawej)
+function shiftPts(pts, dLng) {
+  return pts.map(([lat, lng]) => [lat, lng + dLng]);
 }
 
 function updateArc() {
@@ -401,13 +414,25 @@ function updateArc() {
   if (selected.length === 2) {
     const [a, b] = selected.map(iata => airports.find(x => x.iata === iata));
     const pts = greatCirclePoints(a.lat, a.lng, b.lat, b.lng);
+    const arcStyle = { color: '#c8a96e', weight: 2, opacity: 0.85, dashArray: '6 4' };
 
-    arcLayer = L.polyline(pts, {
-      color: '#c8a96e',
-      weight: 2,
-      opacity: 0.85,
-      dashArray: '6 4',
-    }).addTo(map);
+    // Łuk w trzech kopiach świata, żeby lot przez antymerydian był widoczny
+    // z obu stron krawędzi 180°, niezależnie od tego, gdzie przewinięta jest mapa.
+    arcLayer = L.layerGroup([
+      L.polyline(shiftPts(pts, -360), arcStyle),
+      L.polyline(pts, arcStyle),
+      L.polyline(shiftPts(pts, 360), arcStyle),
+    ]).addTo(map);
+
+    // Widok dolatuje do tej kopii łuku, która leży najbliżej aktualnego środka mapy
+    const center = map.getCenter().lng;
+    const arcMid = (pts[0][1] + pts[pts.length - 1][1]) / 2;
+    const shift = Math.round((center - arcMid) / 360) * 360;
+    map.flyToBounds(L.latLngBounds(shiftPts(pts, shift)), {
+      padding: [80, 80],
+      maxZoom: 6,
+      duration: 1.2,
+    });
 
     const dist = haversine(a.lat, a.lng, b.lat, b.lng);
     const flightDist = dist * 1.055;

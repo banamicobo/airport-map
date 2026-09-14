@@ -75,6 +75,46 @@
       color: #666688;
       margin-top: 2px;
     }
+    #distance-panel .dist-value.ulr { color: #7ab8f5; }
+    #distance-panel .dist-value.stop { color: #e0e0e0; }
+    #route-status {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      font-size: 12px;
+      line-height: 1.55;
+      color: #aaaacc;
+      max-width: 440px;
+    }
+    #route-status .verdict { font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 11px; }
+    #route-status .verdict.a380 { color: #c8a96e; }
+    #route-status .verdict.ulr { color: #7ab8f5; }
+    #route-status .verdict.stop { color: #ff8a80; }
+    #route-status .line { margin-top: 3px; }
+    #route-status .muted { color: #666688; font-size: 11px; }
+    #route-status a { color: #7ab8f5; text-decoration: none; }
+    #route-status a:hover { text-decoration: underline; }
+    #route-status .hub-btn {
+      display: inline-block;
+      margin: 4px 3px 0 0;
+      padding: 2px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: transparent;
+      color: #aaaacc;
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    #route-status .hub-btn.active { border-color: #c8a96e; color: #f0d090; }
+    #route-status .hub-btn:hover { border-color: #aaaacc; }
+    #legend .line-sample {
+      width: 22px; height: 0;
+      border-top: 2px dashed #c8a96e;
+      flex-shrink: 0;
+    }
+    #legend .line-sample.ulr { border-top-color: #7ab8f5; }
+    #legend .line-sample.stop { border-top-style: dotted; border-top-color: #777; }
 
     #legend {
       position: absolute;
@@ -173,9 +213,10 @@
     </div>
     <div class="dist-block">
       <div class="dist-value" id="dist-flight">—</div>
-      <div class="dist-label">Avg. Flight Path</div>
+      <div class="dist-label" id="dist-flight-label">Avg. Flight Path</div>
     </div>
   </div>
+  <div id="route-status"></div>
 </div>
 
 <div id="legend">
@@ -186,6 +227,18 @@
   <div class="legend-item">
     <div class="dot-small"></div>
     <span>Standard airport</span>
+  </div>
+  <div class="legend-item">
+    <div class="line-sample"></div>
+    <span>A380 nonstop (≤ 14,200 km)</span>
+  </div>
+  <div class="legend-item">
+    <div class="line-sample ulr"></div>
+    <span>Nonstop only with ULR jets</span>
+  </div>
+  <div class="legend-item">
+    <div class="line-sample stop"></div>
+    <span>No nonstop flight — via hub</span>
   </div>
 </div>
 
@@ -258,6 +311,56 @@ const airports = [
   { iata:"WAW", name:"Warsaw Chopin Airport", city:"Warsaw, Poland", lat:52.1657, lng:20.9671, pax:18800000, year:1934, terminals:1, a380:false, wiki:"Warsaw_Chopin_Airport" },
 ];
 
+// ── Zasięg A380 i realne trasy ────────────────────────────────────────────
+// Stan wiedzy: RANGE_DATA_DATE. Zasięgi i lista lotów ULR się zmieniają (Project
+// Sunrise, nowe warianty) — przegląd w newsach co kwartał, wiersz APM na tablicy.
+const RANGE_DATA_DATE = '2026-09-14';
+const A380_RANGE_KM = 14200;  // praktyczny: najdłuższa realna trasa A380 (DXB–AKL); katalogowo 14 800 km (8 000 NM)
+const ULR_MAX_KM    = 15400;  // najdłuższy lot świata: SIN–JFK 15 349 km, A350-900ULR
+const SRC_LONGEST   = 'https://en.wikipedia.org/wiki/Longest_flights';
+const SRC_A380      = 'https://simpleflying.com/how-far-can-the-airbus-a380-fly/';
+
+// Huby przesiadkowe operatorów A380 — kandydaci na międzylądowanie, gdy nonstop nie istnieje
+const HUBS = ['DXB','DOH','AUH','SIN','LHR','FRA','MUC','ICN','NRT','HND','HKG','LAX','SFO','JFK','DFW','SYD'];
+
+// Loty nonstop na skraju zasięgu A380 i poza nim — tabela ręczna, źródło: SRC_LONGEST
+const ulrRoutes = [
+  { a:'JFK', b:'SIN', airline:'Singapore Airlines',          aircraft:'A350-900ULR',       note:'business + premium economy only' },
+  { a:'EWR', b:'SIN', airline:'Singapore Airlines',          aircraft:'A350-900ULR',       note:'business + premium economy only' },
+  { a:'AKL', b:'DOH', airline:'Qatar Airways',               aircraft:'777-200LR' },
+  { a:'PER', b:'LHR', airline:'Qantas',                      aircraft:'787-9' },
+  { a:'DFW', b:'MEL', airline:'Qantas',                      aircraft:'787-9' },
+  { a:'PER', b:'CDG', airline:'Qantas',                      aircraft:'787-9' },
+  { a:'JFK', b:'AKL', airline:'Qantas / Air New Zealand',    aircraft:'787-9' },
+  { a:'DXB', b:'AKL', airline:'Emirates',                    aircraft:'A380',              note:'longest A380 route in the world' },
+  { a:'SZX', b:'MEX', airline:'China Southern',              aircraft:'A350-900' },
+  { a:'LAX', b:'SIN', airline:'Singapore Airlines',          aircraft:'A350-900ULR' },
+  { a:'IAH', b:'SYD', airline:'United',                      aircraft:'787-9' },
+  { a:'DFW', b:'SYD', airline:'Qantas',                      aircraft:'787-9 / A380' },
+  { a:'JNB', b:'ATL', airline:'Delta',                       aircraft:'A350-900' },
+  { a:'SFO', b:'SIN', airline:'Singapore Airlines / United', aircraft:'A350-900 / 787-9' },
+];
+
+// Zapowiedziane nonstopy, które jeszcze nie latają — każdy z linkiem do źródła
+const plannedRoutes = [
+  { a:'LHR', b:'SYD', airline:'Qantas', aircraft:'A350-1000ULR', label:'Project Sunrise', when:'from October 2027',
+    src:'https://www.qantasnewsroom.com.au/media-releases/qantas-project-sunrise-completes-maiden-test-flight' },
+  { a:'JFK', b:'SYD', airline:'Qantas', aircraft:'A350-1000ULR', label:'Project Sunrise', when:'after London, date not announced',
+    src:'https://www.qantasnewsroom.com.au/media-releases/qantas-project-sunrise-completes-maiden-test-flight' },
+];
+
+// Trasy bez nonstopu, o których wiemy, jak są realnie latane (hub w kolejności rynkowej)
+const viaRoutes = [
+  { a:'LHR', b:'SYD', via:['SIN','DXB'], flown:'Qantas via SIN (A380, QF1/2) · Emirates via DXB (A380)',
+    src:'https://www.pointhacks.com.au/guides/flights/qantas-qf1/' },
+  { a:'LHR', b:'MEL', via:['SIN','DXB'], flown:'Qantas via SIN (A380) · Emirates via DXB (A380)',
+    src:'https://www.pointhacks.com.au/guides/flights/qantas-qf1/' },
+];
+
+function findRoute(list, x, y) {
+  return list.find(r => (r.a === x && r.b === y) || (r.a === y && r.b === x));
+}
+
 // Map init
 const worldBounds = L.latLngBounds([[-85, -180], [85, 180]]);
 
@@ -289,6 +392,7 @@ map.whenReady(updateMinZoom);
 window.addEventListener('resize', updateMinZoom);
 
 L.control.zoom({ position: 'bottomleft' }).addTo(map);
+L.DomEvent.disableClickPropagation(document.getElementById('distance-panel'));
 
 // Poland border
 fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries/POL.geo.json')
@@ -310,6 +414,7 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_D
 // State
 let selected = [];
 let arcLayer = null;
+let chosenHub = null;   // hub wybrany ręcznie w panelu (tylko dla tras bez nonstopu)
 const markerRefs = {};
 
 function fmt(n) {
@@ -430,32 +535,120 @@ function verifyArc(pts, a, b) {
   return problems.length === 0;
 }
 
+// Trzy kopie świata dla dowolnej polilinii (lot przez antymerydian widoczny z obu stron 180°)
+function arcCopies(pts, style) {
+  return [L.polyline(shiftPts(pts, -360), style), L.polyline(pts, style), L.polyline(shiftPts(pts, 360), style)];
+}
+
+// Klasyfikacja trasy: 'a380' (w zasięgu), 'ulr' (nonstop tylko maszyną ULR), 'stop' (nikt nie lata nonstop)
+function classifyRoute(dist, ulr) {
+  if (dist <= A380_RANGE_KM) return 'a380';
+  if (dist <= ULR_MAX_KM || ulr) return 'ulr';
+  return 'stop';
+}
+
+// Huby, przez które da się polecieć w dwóch odcinkach, oba w zasięgu A380; posortowane po sumie
+function hubOptions(a, b) {
+  const byIata = Object.fromEntries(airports.map(x => [x.iata, x]));
+  const candidates = HUBS.filter(h => h !== a.iata && h !== b.iata && byIata[h]);
+  const opts = candidates.map(h => {
+    const H = byIata[h];
+    const l1 = haversine(a.lat, a.lng, H.lat, H.lng);
+    const l2 = haversine(H.lat, H.lng, b.lat, b.lng);
+    return { hub: H, l1, l2, total: l1 + l2 };
+  }).filter(o => o.l1 <= A380_RANGE_KM && o.l2 <= A380_RANGE_KM);
+  opts.sort((x, y) => x.total - y.total);
+  return opts;
+}
+
+const km = n => Math.round(n).toLocaleString('en-US') + ' km';
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
 function updateArc() {
   if (arcLayer) { map.removeLayer(arcLayer); arcLayer = null; }
-  document.getElementById('distance-panel').style.display = 'none';
+  const panel = document.getElementById('distance-panel');
+  panel.style.display = 'none';
+  if (selected.length !== 2) return;
 
-  if (selected.length === 2) {
-    const [a, b] = selected.map(iata => airports.find(x => x.iata === iata));
-    const pts = greatCirclePoints(a.lat, a.lng, b.lat, b.lng);
-    verifyArc(pts, a, b);
-    const arcStyle = { color: '#c8a96e', weight: 2, opacity: 0.85, dashArray: '6 4' };
+  const [a, b] = selected.map(iata => airports.find(x => x.iata === iata));
+  const pts = greatCirclePoints(a.lat, a.lng, b.lat, b.lng);
+  verifyArc(pts, a, b);
 
-    // Łuk w trzech kopiach świata, żeby lot przez antymerydian był widoczny
-    // z obu stron krawędzi 180°, niezależnie od tego, gdzie przewinięta jest mapa.
-    arcLayer = L.layerGroup([
-      L.polyline(shiftPts(pts, -360), arcStyle),
-      L.polyline(pts, arcStyle),
-      L.polyline(shiftPts(pts, 360), arcStyle),
-    ]).addTo(map);
+  const dist = haversine(a.lat, a.lng, b.lat, b.lng);
+  const ulr = findRoute(ulrRoutes, a.iata, b.iata);
+  const planned = findRoute(plannedRoutes, a.iata, b.iata);
+  const tier = classifyRoute(dist, ulr);
 
-    const dist = haversine(a.lat, a.lng, b.lat, b.lng);
-    const flightDist = dist * 1.055;
+  const gold = { color: '#c8a96e', weight: 2, opacity: 0.85, dashArray: '6 4' };
+  const blue = { color: '#7ab8f5', weight: 2, opacity: 0.85, dashArray: '6 4' };
+  const grey = { color: '#9a9ab0', weight: 1.5, opacity: 0.55, dashArray: '3 6', interactive: false };
 
-    document.getElementById('airports-label').textContent = `${a.iata} ↔ ${b.iata}`;
-    document.getElementById('dist-straight').textContent = Math.round(dist).toLocaleString() + ' km';
-    document.getElementById('dist-flight').textContent = Math.round(flightDist).toLocaleString() + ' km';
-    document.getElementById('distance-panel').style.display = 'block';
+  const status = [];
+  let secondValue = km(dist * 1.055), secondLabel = 'Avg. Flight Path', secondClass = '';
+  let layers = [];
+
+  if (tier === 'a380') {
+    layers = arcCopies(pts, gold);
+    status.push(`<div class="verdict a380">A380 nonstop — within range</div>`);
+    if (ulr) status.push(`<div class="line">Flown by ${esc(ulr.airline)} · ${esc(ulr.aircraft)}${ulr.note ? ' · ' + esc(ulr.note) : ''}</div>`);
+  } else if (tier === 'ulr') {
+    layers = arcCopies(pts, blue);
+    secondClass = 'ulr';
+    status.push(`<div class="verdict ulr">Beyond A380 range — nonstop only with ULR jets</div>`);
+    if (ulr) status.push(`<div class="line">Flown by ${esc(ulr.airline)} · ${esc(ulr.aircraft)}${ulr.note ? ' · ' + esc(ulr.note) : ''}</div>`);
+    else status.push(`<div class="line">A350-900ULR / 787-9 / 777-200LR territory; no scheduled nonstop known on this pair</div>`);
+  } else {
+    // Nikt nie lata nonstop: ortodroma zostaje jako szare odniesienie, na wierzchu trasa przez hub
+    layers = arcCopies(pts, grey);
+    secondClass = 'stop';
+    const opts = hubOptions(a, b);
+    const via = findRoute(viaRoutes, a.iata, b.iata);
+    // Kolejność: hub wybrany ręcznie → hub z realnej trasy (viaRoutes) → najkrótsza suma
+    const defaultHub = via ? via.via.find(h => opts.some(o => o.hub.iata === h)) : null;
+    const pick = opts.find(o => o.hub.iata === (chosenHub || defaultHub)) || opts[0];
+    status.push(`<div class="verdict stop">No nonstop flight exists — beyond every airliner in service</div>`);
+    if (via) status.push(`<div class="line">Flown as: ${esc(via.flown)} · <a href="${via.src}" target="_blank" rel="noopener">source</a></div>`);
+    if (pick) {
+      const H = pick.hub;
+      const leg1 = greatCirclePoints(a.lat, a.lng, H.lat, H.lng);
+      const leg2 = greatCirclePoints(H.lat, H.lng, b.lat, b.lng);
+      verifyArc(leg1, a, H); verifyArc(leg2, H, b);
+      layers = layers.concat(arcCopies(leg1, gold), arcCopies(leg2, gold));
+      // Pierścień na hubie — w trzech kopiach świata, jak markery
+      [-360, 0, 360].forEach(d => layers.push(L.circleMarker([H.lat, H.lng + d], {
+        radius: 19, color: '#f0d090', weight: 2, fill: false, opacity: 0.9, interactive: false,
+      })));
+      secondValue = km(pick.total); secondLabel = `Via ${H.iata}`;
+      status.push(`<div class="line">${a.iata} → <b>${H.iata}</b> → ${b.iata}: ${km(pick.l1)} + ${km(pick.l2)} = ${km(pick.total)} <span class="muted">(+${km(pick.total - dist)} vs great circle)</span></div>`);
+      const btns = opts.slice(0, 4).map(o =>
+        `<button class="hub-btn${o.hub.iata === H.iata ? ' active' : ''}" data-hub="${o.hub.iata}">via ${o.hub.iata} · ${km(o.total)}</button>`).join('');
+      status.push(`<div class="line">${btns}</div>`);
+    } else {
+      status.push(`<div class="line">No two-leg routing through an A380 hub with both legs within A380 range.</div>`);
+    }
   }
+
+  if (planned) {
+    status.push(`<div class="line">Nonstop planned: ${esc(planned.airline)} ${esc(planned.aircraft)} (${esc(planned.label)}), ${esc(planned.when)} · <a href="${planned.src}" target="_blank" rel="noopener">source</a></div>`);
+  }
+  status.push(`<div class="muted">A380 range ${km(A380_RANGE_KM)} (longest route in service) · data as of ${RANGE_DATA_DATE} · <a href="${SRC_LONGEST}" target="_blank" rel="noopener">longest flights</a> · <a href="${SRC_A380}" target="_blank" rel="noopener">A380 range</a></div>`);
+
+  arcLayer = L.layerGroup(layers).addTo(map);
+
+  document.getElementById('airports-label').textContent = `${a.iata} ↔ ${b.iata}`;
+  document.getElementById('dist-straight').textContent = km(dist);
+  const second = document.getElementById('dist-flight');
+  second.textContent = secondValue;
+  second.className = 'dist-value ' + secondClass;
+  document.getElementById('dist-flight-label').textContent = secondLabel;
+  const st = document.getElementById('route-status');
+  st.innerHTML = status.join('');
+  st.querySelectorAll('.hub-btn').forEach(btn => btn.addEventListener('click', e => {
+    L.DomEvent.stopPropagation(e);
+    chosenHub = btn.dataset.hub;
+    updateArc();
+  }));
+  panel.style.display = 'block';
 }
 
 function updateHint() {
@@ -490,6 +683,7 @@ airports.forEach(a => {
       } else {
         selected = [a.iata];
       }
+      chosenHub = null;
       refreshMarkers();
       updateArc();
       updateHint();
@@ -501,6 +695,7 @@ airports.forEach(a => {
 // Click on map = clear selection
 map.on('click', () => {
   selected = [];
+  chosenHub = null;
   refreshMarkers();
   updateArc();
   updateHint();

@@ -319,6 +319,12 @@ const A380_RANGE_KM = 14200;  // praktyczny: najdłuższa realna trasa A380 (DXB
 const ULR_MAX_KM    = 15400;  // najdłuższy lot świata: SIN–JFK 15 349 km, A350-900ULR
 const SRC_LONGEST   = 'https://en.wikipedia.org/wiki/Longest_flights';
 const SRC_A380      = 'https://simpleflying.com/how-far-can-the-airbus-a380-fly/';
+// Ortodroma między odległymi parami (JFK–SIN, BKK–YYZ) przechodzi 87–89°N — na Mercatorze
+// to pionowy „pocisk" w górną krawędź mapy. Rysujemy trasę złożoną (composite great circle,
+// jak w nawigacji z szerokością graniczną): ortodroma do styczności z równoleżnikiem LAT_CAP,
+// odcinek wzdłuż równoleżnika, ortodroma w dół. Dłuższa od czystej ortodromy o ułamek procenta,
+// a odpowiada praktyce polarnej (ETOPS, paliwo, łączność), gdzie linie nie idą przez sam biegun.
+const LAT_CAP = 80;
 
 // Huby przesiadkowe operatorów A380 — kandydaci na międzylądowanie, gdy nonstop nie istnieje
 const HUBS = ['DXB','DOH','AUH','SIN','LHR','FRA','MUC','ICN','NRT','HND','HKG','LAX','SFO','JFK','DFW','SYD'];
@@ -507,6 +513,61 @@ function greatCirclePoints(lat1, lon1, lat2, lon2, n=120) {
   return pts;
 }
 
+// Trasa złożona z szerokością graniczną. Zwraca null, gdy ortodroma nie przekracza LAT_CAP
+// albo geometria nie pozwala (lotnisko powyżej granicy). Wynik: { pts, km, peak }.
+function compositeRoute(lat1, lon1, lat2, lon2, gcPts) {
+  const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
+  const peak = Math.max(...gcPts.map(p => Math.abs(p[0])));
+  if (peak <= LAT_CAP) return null;
+  const sign = gcPts.reduce((m, p) => Math.abs(p[0]) > Math.abs(m) ? p[0] : m, 0) > 0 ? 1 : -1;
+  const capLat = sign * LAT_CAP;
+  if (Math.abs(lat1) >= LAT_CAP || Math.abs(lat2) >= LAT_CAP) return null;
+  // Kierunek podróży po długości (odwinięty jak w gcPts)
+  const dir = Math.sign(gcPts[gcPts.length - 1][1] - gcPts[0][1]) || 1;
+  // Długość geograficzna wierzchołka ortodromy z A stycznej do równoleżnika capLat:
+  // cos(Δλ) = tan(φA) / tan(φL)
+  const dl1 = toDeg(Math.acos(Math.tan(toRad(lat1)) / Math.tan(toRad(capLat))));
+  const dl2 = toDeg(Math.acos(Math.tan(toRad(lat2)) / Math.tan(toRad(capLat))));
+  const v1 = lon1 + dir * dl1;
+  const v2Raw = lon2 - dir * dl2;
+  // v2 w tym samym „odwinięciu" co v1 i po właściwej stronie
+  let v2 = v2Raw;
+  while (dir * (v2 - v1) < 0) v2 += dir * 360;
+  while (dir * (v2 - v1) > 360) v2 -= dir * 360;
+  const span = dir * (v2 - v1);
+  if (!(span > 0) || span > 180) return null;
+  const leg1 = greatCirclePoints(lat1, lon1, capLat, v1, 50);
+  const leg3 = greatCirclePoints(capLat, v2, lat2, lon2, 50);
+  const along = [];
+  const n = Math.max(2, Math.round(span / 2));
+  for (let i = 1; i < n; i++) along.push([capLat, v1 + dir * span * i / n]);
+  // Sklejenie z zachowaniem ciągłości długości (każdy segment ma własne odwinięcie)
+  const glue = (acc, seg) => {
+    let off = 0;
+    if (acc.length) {
+      const prev = acc[acc.length - 1][1], first = seg[0][1];
+      off = Math.round((prev - first) / 360) * 360;
+    }
+    seg.forEach(([la, lo], i) => { if (!(acc.length && i === 0)) acc.push([la, lo + off]); });
+    return acc;
+  };
+  let pts = [];
+  pts = glue(pts, leg1); pts = glue(pts, [[capLat, v1], ...along, [capLat, v2]]); pts = glue(pts, leg3);
+  let km = 0;
+  for (let i = 1; i < pts.length; i++) km += haversine(pts[i-1][0], pts[i-1][1], pts[i][0], pts[i][1]);
+  return { pts, km, peak };
+}
+
+// Trasa do narysowania między dwoma punktami: ortodroma albo trasa złożona, gdy ortodroma
+// wchodzi powyżej LAT_CAP. Zwraca { pts, km, capped, peak }.
+function routePoints(lat1, lon1, lat2, lon2) {
+  const gc = greatCirclePoints(lat1, lon1, lat2, lon2);
+  const direct = haversine(lat1, lon1, lat2, lon2);
+  const comp = compositeRoute(lat1, lon1, lat2, lon2, gc);
+  if (!comp) return { pts: gc, km: direct, capped: false, peak: Math.max(...gc.map(p => Math.abs(p[0]))) };
+  return { pts: comp.pts, km: comp.km, capped: true, peak: comp.peak, direct };
+}
+
 // Ta sama trasa przesunięta o pełny obrót świata (kopie mapy po lewej/prawej)
 function shiftPts(pts, dLng) {
   return pts.map(([lat, lng]) => [lat, lng + dLng]);
@@ -517,17 +578,18 @@ function shiftPts(pts, dLng) {
 // punkty nie mogą skakać o setki stopni długości (błąd odwijania przez antymerydian).
 // Niezgodność ląduje w konsoli — samolot pasażerski leci po ortodromie, więc łuk
 // z innym dystansem to błąd rysowania, nie inna trasa.
-function verifyArc(pts, a, b) {
+function verifyArc(pts, a, b, expectedKm) {
   const norm = lng => ((lng + 180) % 360 + 360) % 360 - 180;
   let len = 0, maxJump = 0;
   for (let i = 1; i < pts.length; i++) {
     len += haversine(pts[i-1][0], pts[i-1][1], pts[i][0], pts[i][1]);
     maxJump = Math.max(maxJump, Math.abs(pts[i][1] - pts[i-1][1]));
   }
-  const direct = haversine(a.lat, a.lng, b.lat, b.lng);
+  const direct = expectedKm || haversine(a.lat, a.lng, b.lat, b.lng);
   const first = pts[0], last = pts[pts.length - 1];
   const problems = [];
-  if (Math.abs(len - direct) / direct > 0.001) problems.push(`długość łuku ${len.toFixed(1)} km ≠ ortodroma ${direct.toFixed(1)} km`);
+  if (expectedKm && expectedKm < haversine(a.lat, a.lng, b.lat, b.lng) * 0.999) problems.push('trasa krótsza od ortodromy');
+  if (Math.abs(len - direct) / direct > 0.001) problems.push(`długość łuku ${len.toFixed(1)} km ≠ oczekiwana ${direct.toFixed(1)} km`);
   if (Math.abs(first[0] - a.lat) > 1e-6 || Math.abs(norm(first[1]) - norm(a.lng)) > 1e-6) problems.push(`początek łuku nie leży w ${a.iata}`);
   if (Math.abs(last[0] - b.lat) > 1e-6 || Math.abs(norm(last[1]) - norm(b.lng)) > 1e-6) problems.push(`koniec łuku nie leży w ${b.iata}`);
   if (maxJump > 180) problems.push(`skok długości ${maxJump.toFixed(1)}° między sąsiednimi punktami`);
@@ -571,8 +633,9 @@ function updateArc() {
   if (selected.length !== 2) return;
 
   const [a, b] = selected.map(iata => airports.find(x => x.iata === iata));
-  const pts = greatCirclePoints(a.lat, a.lng, b.lat, b.lng);
-  verifyArc(pts, a, b);
+  const route = routePoints(a.lat, a.lng, b.lat, b.lng);
+  const pts = route.pts;
+  verifyArc(pts, a, b, route.km);
 
   const dist = haversine(a.lat, a.lng, b.lat, b.lng);
   const ulr = findRoute(ulrRoutes, a.iata, b.iata);
@@ -586,17 +649,22 @@ function updateArc() {
   const status = [];
   let secondValue = km(dist * 1.055), secondLabel = 'Avg. Flight Path', secondClass = '';
   let layers = [];
+  const cappedNote = r => r.capped
+    ? `<div class="muted">Great circle would peak at ${r.peak.toFixed(1)}°; drawn path stays below ${LAT_CAP}° (polar-ops corridor), +${km(r.km - r.direct)}</div>`
+    : '';
 
   if (tier === 'a380') {
     layers = arcCopies(pts, gold);
     status.push(`<div class="verdict a380">A380 nonstop — within range</div>`);
     if (ulr) status.push(`<div class="line">Flown by ${esc(ulr.airline)} · ${esc(ulr.aircraft)}${ulr.note ? ' · ' + esc(ulr.note) : ''}</div>`);
+    status.push(cappedNote(route));
   } else if (tier === 'ulr') {
     layers = arcCopies(pts, blue);
     secondClass = 'ulr';
     status.push(`<div class="verdict ulr">Beyond A380 range — nonstop only with ULR jets</div>`);
     if (ulr) status.push(`<div class="line">Flown by ${esc(ulr.airline)} · ${esc(ulr.aircraft)}${ulr.note ? ' · ' + esc(ulr.note) : ''}</div>`);
     else status.push(`<div class="line">A350-900ULR / 787-9 / 777-200LR territory; no scheduled nonstop known on this pair</div>`);
+    status.push(cappedNote(route));
   } else {
     // Nikt nie lata nonstop: ortodroma zostaje jako szare odniesienie, na wierzchu trasa przez hub
     layers = arcCopies(pts, grey);
@@ -610,10 +678,10 @@ function updateArc() {
     if (via) status.push(`<div class="line">Flown as: ${esc(via.flown)} · <a href="${via.src}" target="_blank" rel="noopener">source</a></div>`);
     if (pick) {
       const H = pick.hub;
-      const leg1 = greatCirclePoints(a.lat, a.lng, H.lat, H.lng);
-      const leg2 = greatCirclePoints(H.lat, H.lng, b.lat, b.lng);
-      verifyArc(leg1, a, H); verifyArc(leg2, H, b);
-      layers = layers.concat(arcCopies(leg1, gold), arcCopies(leg2, gold));
+      const r1 = routePoints(a.lat, a.lng, H.lat, H.lng);
+      const r2 = routePoints(H.lat, H.lng, b.lat, b.lng);
+      verifyArc(r1.pts, a, H, r1.km); verifyArc(r2.pts, H, b, r2.km);
+      layers = layers.concat(arcCopies(r1.pts, gold), arcCopies(r2.pts, gold));
       // Pierścień na hubie — w trzech kopiach świata, jak markery
       [-360, 0, 360].forEach(d => layers.push(L.circleMarker([H.lat, H.lng + d], {
         radius: 19, color: '#f0d090', weight: 2, fill: false, opacity: 0.9, interactive: false,

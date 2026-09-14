@@ -407,6 +407,29 @@ function shiftPts(pts, dLng) {
   return pts.map(([lat, lng]) => [lat, lng + dLng]);
 }
 
+// Weryfikacja narysowanej trasy: suma odcinków łuku musi zgadzać się z dystansem
+// ortodromy (do 0.1%), łuk musi zaczynać się i kończyć w obu lotniskach, a sąsiednie
+// punkty nie mogą skakać o setki stopni długości (błąd odwijania przez antymerydian).
+// Niezgodność ląduje w konsoli — samolot pasażerski leci po ortodromie, więc łuk
+// z innym dystansem to błąd rysowania, nie inna trasa.
+function verifyArc(pts, a, b) {
+  const norm = lng => ((lng + 180) % 360 + 360) % 360 - 180;
+  let len = 0, maxJump = 0;
+  for (let i = 1; i < pts.length; i++) {
+    len += haversine(pts[i-1][0], pts[i-1][1], pts[i][0], pts[i][1]);
+    maxJump = Math.max(maxJump, Math.abs(pts[i][1] - pts[i-1][1]));
+  }
+  const direct = haversine(a.lat, a.lng, b.lat, b.lng);
+  const first = pts[0], last = pts[pts.length - 1];
+  const problems = [];
+  if (Math.abs(len - direct) / direct > 0.001) problems.push(`długość łuku ${len.toFixed(1)} km ≠ ortodroma ${direct.toFixed(1)} km`);
+  if (Math.abs(first[0] - a.lat) > 1e-6 || Math.abs(norm(first[1]) - norm(a.lng)) > 1e-6) problems.push(`początek łuku nie leży w ${a.iata}`);
+  if (Math.abs(last[0] - b.lat) > 1e-6 || Math.abs(norm(last[1]) - norm(b.lng)) > 1e-6) problems.push(`koniec łuku nie leży w ${b.iata}`);
+  if (maxJump > 180) problems.push(`skok długości ${maxJump.toFixed(1)}° między sąsiednimi punktami`);
+  if (problems.length) console.error(`Trasa ${a.iata}–${b.iata} nie przeszła weryfikacji:`, problems);
+  return problems.length === 0;
+}
+
 function updateArc() {
   if (arcLayer) { map.removeLayer(arcLayer); arcLayer = null; }
   document.getElementById('distance-panel').style.display = 'none';
@@ -414,6 +437,7 @@ function updateArc() {
   if (selected.length === 2) {
     const [a, b] = selected.map(iata => airports.find(x => x.iata === iata));
     const pts = greatCirclePoints(a.lat, a.lng, b.lat, b.lng);
+    verifyArc(pts, a, b);
     const arcStyle = { color: '#c8a96e', weight: 2, opacity: 0.85, dashArray: '6 4' };
 
     // Łuk w trzech kopiach świata, żeby lot przez antymerydian był widoczny
@@ -423,16 +447,6 @@ function updateArc() {
       L.polyline(pts, arcStyle),
       L.polyline(shiftPts(pts, 360), arcStyle),
     ]).addTo(map);
-
-    // Widok dolatuje do tej kopii łuku, która leży najbliżej aktualnego środka mapy
-    const center = map.getCenter().lng;
-    const arcMid = (pts[0][1] + pts[pts.length - 1][1]) / 2;
-    const shift = Math.round((center - arcMid) / 360) * 360;
-    map.flyToBounds(L.latLngBounds(shiftPts(pts, shift)), {
-      padding: [80, 80],
-      maxZoom: 6,
-      duration: 1.2,
-    });
 
     const dist = haversine(a.lat, a.lng, b.lat, b.lng);
     const flightDist = dist * 1.055;
@@ -453,33 +467,35 @@ function updateHint() {
 
 function refreshMarkers() {
   airports.forEach(a => {
-    const m = markerRefs[a.iata];
     const isSel = selected.includes(a.iata);
-    m.setStyle(makeStyle(a, isSel));
+    markerRefs[a.iata].forEach(m => m.setStyle(makeStyle(a, isSel)));
   });
 }
 
-// Create markers
+// Create markers — każde lotnisko w trzech kopiach świata (-360°, 0°, +360°),
+// żeby kropka nie znikała, gdy mapa jest przewinięta poza pierwszą kopię
+// (np. Hawaje oglądane od strony Pacyfiku/Azji).
 airports.forEach(a => {
-  const m = L.circleMarker([a.lat, a.lng], makeStyle(a, false))
-    .addTo(map)
-    .bindTooltip(tooltipHtml(a), { sticky: false, interactive: true, className: '', direction: 'auto', offset: [12, 0] });
+  markerRefs[a.iata] = [-360, 0, 360].map(dLng => {
+    const m = L.circleMarker([a.lat, a.lng + dLng], makeStyle(a, false))
+      .addTo(map)
+      .bindTooltip(tooltipHtml(a), { sticky: false, interactive: true, className: '', direction: 'auto', offset: [12, 0] });
 
-  m.on('click', e => {
-    L.DomEvent.stopPropagation(e);
-    if (selected.includes(a.iata)) {
-      selected = selected.filter(x => x !== a.iata);
-    } else if (selected.length < 2) {
-      selected.push(a.iata);
-    } else {
-      selected = [a.iata];
-    }
-    refreshMarkers();
-    updateArc();
-    updateHint();
+    m.on('click', e => {
+      L.DomEvent.stopPropagation(e);
+      if (selected.includes(a.iata)) {
+        selected = selected.filter(x => x !== a.iata);
+      } else if (selected.length < 2) {
+        selected.push(a.iata);
+      } else {
+        selected = [a.iata];
+      }
+      refreshMarkers();
+      updateArc();
+      updateHint();
+    });
+    return m;
   });
-
-  markerRefs[a.iata] = m;
 });
 
 // Click on map = clear selection
